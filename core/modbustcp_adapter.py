@@ -3,6 +3,7 @@ import threading
 import time
 from threading import Timer
 
+from spread_core.mqtt.variables import VariableTRS3
 from spread_core.tools import settings
 from spread_core.tools.service_launcher import Launcher
 from spread_core.tools.settings import config, logging
@@ -16,7 +17,7 @@ HOSTnPORT = config['BUS_HOST_PORT']
 TIMEOUT = config['BUS_TIMEOUT']
 KILL_TIMEOUT = config['KILL_TIMEOUT']
 
-topic_dump = 'Tros3/State/{}/{}'
+topic_dump = 'Tros3/State/{}/{}/0'
 topic_send = 'ModBus/from_Client/{}'
 is_lock=False
 
@@ -175,11 +176,12 @@ class ModBusTCPAdapterLauncher(Launcher):
                         self.mqttc.publish(topic=topic_dump.format(BUS_ID) + '/error', payload=str(ex))
                     else:
                         try:
-                        #print('------------')
                            tt=out[18:22]
-                           out = str(int(tt, 16))
+                           tk=int(tt, 16)
+                           tk=tk+27315
+                           out = VariableTRS3(None, int(BUS_ID), 0, (tk))
                            top_out = topic_dump.format(PROJECT, BUS_ID)
-                           self.mqttc.publish(topic=topic_dump.format(PROJECT, BUS_ID), payload=out)
+                           self.mqttc.publish(topic=topic_dump.format(PROJECT, BUS_ID), payload=out.pack())
                            logging.debug('[  <-]: {}'.format(out))
                         except BaseException as ex:
                             logging.exception(ex)
