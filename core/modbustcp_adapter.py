@@ -16,8 +16,9 @@ PORT = config['BUS_PORT']
 HOSTnPORT = config['BUS_HOST_PORT']
 TIMEOUT = config['BUS_TIMEOUT']
 KILL_TIMEOUT = config['KILL_TIMEOUT']
+THINGS=config['THINGS']
 
-topic_dump = 'Tros3/State/{}/{}/0'
+topic_dump = 'Tros3/State/{}/{}/{}'
 topic_send = 'ModBus/from_Client/{}'
 is_lock=False
 
@@ -134,11 +135,11 @@ class ModBusTCPAdapterLauncher(Launcher):
                     #print(data)
                 except BaseException as ex:
                     logging.exception(ex)
-                    self.mqttc.publish(topic=topic_dump.format(PROJECT, BUS_ID) + '/error', payload=str(ex))
+                    self.mqttc.publish(topic=topic_dump.format(PROJECT, BUS_ID, '0') + '/error', payload=str(ex))
                 else:
                     try:
                         out = ''.join(hex(b)[2:].rjust(2, '0') for b in out)
-                        self.mqttc.publish(topic=topic_dump.format(PROJECT, BUS_ID), payload=out)
+                        self.mqttc.publish(topic=topic_dump.format(PROJECT, BUS_ID, '0'), payload=out)
                         logging.debug('[  <-]: {}'.format(out))
                     except BaseException as ex:
                         logging.exception(ex)
@@ -158,30 +159,50 @@ class ModBusTCPAdapterLauncher(Launcher):
      #   self.mqttc.loop_forever()
         logging.debug('Subscribed to {}'.format(topic_send.format(BUS_ID)))
 
+    def write_to_bro(self, topId, num, value):
+        out = VariableTRS3(None, topId, num, value)
+        self.mqttc.publish(topic=topic_dump.format(PROJECT, str(topId), str(num)), payload=out.pack())
+        logging.debug('[  <-]: {}'.format(out))
 
     def listen_all(self):
 
 
         while True:
+            time.sleep(1)
             self._command_event.wait()
+            try:
+                for thing in THINGS:
+                    num=0
+                    for key, value in thing['topicValues'].items():
+
+                        if key == 'isOpenedId':
+                            #value = self.get_from_DI()
+                            self.write_to_bro(thing['topicId'], num, value)
+                        else:
+                            self.write_to_bro(thing['topicId'], num, value)
+                        num = num+1
+
+            except BaseException as ex:
+                logging.exception(ex)
             for device in self.sock:
                 for data in device.commands():
                     size=len(data)
                     data = bytes.fromhex(data)
                     try:
-                        out = device.send_message(data, size)
+                        tk=2415
+                        #out = device.send_message(data, size)
                         #print(data)
                     except BaseException as ex:
                         logging.exception(ex)
                         self.mqttc.publish(topic=topic_dump.format(BUS_ID) + '/error', payload=str(ex))
                     else:
                         try:
-                           tt=out[18:22]
-                           tk=int(tt, 16)
+                           #tt=out[18:22]
+                           #tk=int(tt, 16)
                            tk=tk+27315
-                           out = VariableTRS3(None, int(BUS_ID), 0, (tk))
-                           top_out = topic_dump.format(PROJECT, BUS_ID)
-                           self.mqttc.publish(topic=topic_dump.format(PROJECT, BUS_ID), payload=out.pack())
+                           out = VariableTRS3(None, int(BUS_ID), 0, tk)
+                           top_out = topic_dump.format(PROJECT, BUS_ID, '0')
+                           self.mqttc.publish(topic=topic_dump.format(PROJECT, BUS_ID, '0'), payload=out.pack())
                            logging.debug('[  <-]: {}'.format(out))
                         except BaseException as ex:
                             logging.exception(ex)
