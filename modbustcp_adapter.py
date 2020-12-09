@@ -1,8 +1,8 @@
+#  master 
 import socket
 import threading
 import time
 from threading import Timer
-
 from spread_core.mqtt.variables import VariableTRS3
 from spread_core.tools import settings
 from spread_core.tools.service_launcher import Launcher
